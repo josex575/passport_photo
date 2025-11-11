@@ -4,16 +4,14 @@ import io
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch, mm
 from streamlit_cropper import st_cropper
-from rembg import remove  # For background removal
 
-# Custom CSS for background similar to Alankit logo (example gradient)
+# Custom CSS for professional app background (light gray)
 st.markdown(
     """
     <style>
     .stApp {
-        background: linear-gradient(135deg, #0A74DA, #00A86B);
-        background-attachment: fixed;
-        color: white;
+        background-color: #f0f2f6;
+        color: black;
     }
     </style>
     """,
@@ -32,13 +30,8 @@ if not uploaded_file:
 image = Image.open(uploaded_file).convert("RGB")
 st.image(image, caption="Original Photo", use_column_width=True)
 
-# Options
-remove_bg = st.checkbox("Remove Background")
+# Option to adjust color tone
 adjust_tone = st.slider("Adjust Color Tone", 0.5, 2.0, 1.0, 0.1)
-
-# Remove background if selected
-if remove_bg:
-    image = remove(image)
 
 # Interactive cropper
 st.markdown("### Drag and resize the rectangle to crop the passport photo")
