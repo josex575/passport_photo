@@ -1,8 +1,8 @@
 import streamlit as st
-from PIL import Image, ImageOps
+from PIL import Image, ImageDraw
 import io
 from reportlab.pdfgen import canvas
-from reportlab.lib.units import inch
+from reportlab.lib.units import inch, mm
 from streamlit_cropper import st_cropper
 
 st.set_page_config(page_title="Passport Studio", page_icon="📸", layout="wide")
@@ -27,39 +27,46 @@ cropped_img = st_cropper(
     return_type="image"  # PIL.Image
 )
 
-# Resize to passport size (600x600 px)
-cropped_resized = cropped_img.resize((600,600), Image.LANCZOS)
+# Resize to passport size (51 mm x 51 mm)
+size_px = int(51 / 25.4 * 300)  # 51mm at 300 DPI
+passport_photo = cropped_img.resize((size_px, size_px), Image.LANCZOS)
 
-# Add light border
-bordered = ImageOps.expand(cropped_resized, border=20, fill="white")
-st.image(bordered, caption="Cropped Passport Photo Preview", width=300)
+# Draw narrow border line
+draw = ImageDraw.Draw(passport_photo)
+border_width = 2  # 2 px border
+draw.rectangle([0, 0, size_px-1, size_px-1], outline="black", width=border_width)
+
+st.image(passport_photo, caption="Cropped Passport Photo with Border", width=150)
 
 # Download JPG
 buf_jpg = io.BytesIO()
-bordered.save(buf_jpg, format="JPEG", quality=90)
+passport_photo.save(buf_jpg, format="JPEG", quality=90)
 buf_jpg.seek(0)
 st.download_button("📥 Download JPG", data=buf_jpg, file_name="passport_photo.jpg", mime="image/jpeg")
 
-# Download PDF with 2 photos at the left edge of the page
+# Download PDF with 2 photos side by side at left edge
 pdf_buf = io.BytesIO()
 c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))  # 6x4 inch paper, landscape
 
-# Save temp photo
-bordered.save("temp.jpg")
+# Convert mm to points for PDF (1 mm = 2.83465 pt)
+photo_size_pt = 51 * 2.83465
 
-# Coordinates: photos at the left edge (x=0), top and bottom
+# Coordinates: bottom-left and top-left
 x_position = 0  # left edge
-y_positions = [0.0*inch, 2.0*inch]  # bottom and top
+y_positions = [0, 4*inch - photo_size_pt]  # bottom and top
+
+# Save temp photo with border
+passport_photo.save("temp.jpg")
 
 for y in y_positions:
-    c.drawImage("temp.jpg", x_position, y, width=2*inch, height=2*inch)
+    c.drawImage("temp.jpg", x_position, y, width=photo_size_pt, height=photo_size_pt)
 
 c.showPage()
 c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (4x6 paper, 2 photos at left edge)",
+    "📥 Download PDF (4x6 paper, 2 photos at left edge with border)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
