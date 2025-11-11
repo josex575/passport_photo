@@ -28,7 +28,8 @@ cropped_img = st_cropper(
 )
 
 # Resize to passport size (51 mm x 51 mm)
-size_px = int(51 / 25.4 * 300)  # 51mm at 300 DPI
+dpi = 300
+size_px = int(51 / 25.4 * dpi)  # 51mm at 300 DPI
 passport_photo = cropped_img.resize((size_px, size_px), Image.LANCZOS)
 
 # Draw narrow border line
@@ -38,11 +39,16 @@ draw.rectangle([0, 0, size_px-1, size_px-1], outline="black", width=border_width
 
 st.image(passport_photo, caption="Cropped Passport Photo with Border", width=150)
 
-# Download JPG
-buf_jpg = io.BytesIO()
-passport_photo.save(buf_jpg, format="JPEG", quality=90)
-buf_jpg.seek(0)
-st.download_button("📥 Download JPG", data=buf_jpg, file_name="passport_photo.jpg", mime="image/jpeg")
+# Download individual JPG photos (two copies)
+buf_jpg1 = io.BytesIO()
+buf_jpg2 = io.BytesIO()
+passport_photo.save(buf_jpg1, format="JPEG", quality=95, dpi=(dpi,dpi))
+passport_photo.save(buf_jpg2, format="JPEG", quality=95, dpi=(dpi,dpi))
+buf_jpg1.seek(0)
+buf_jpg2.seek(0)
+
+st.download_button("📥 Download Photo 1 (JPG)", data=buf_jpg1, file_name="passport_photo_1.jpg", mime="image/jpeg")
+st.download_button("📥 Download Photo 2 (JPG)", data=buf_jpg2, file_name="passport_photo_2.jpg", mime="image/jpeg")
 
 # Download PDF with 2 photos side by side at left edge
 pdf_buf = io.BytesIO()
