@@ -61,3 +61,55 @@ def detect_and_crop_face(pil_img):
     # Add margin for shoulders/headroom
     margin = int(0.6 * h)
     x1 = max(0, x - margin)
+    y1 = max(0, y - margin)
+    x2 = min(cv_img.shape[1], x + w + margin)
+    y2 = min(cv_img.shape[0], y + h + margin)
+
+    face_region = cv_img[y1:y2, x1:x2]
+    cropped_pil = Image.fromarray(cv2.cvtColor(face_region, cv2.COLOR_BGR2RGB))
+    return cropped_pil
+
+uploaded_file = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
+
+if uploaded_file:
+    img = load_image(uploaded_file)
+    st.image(img, caption=f"Uploaded image ({img.width}×{img.height}px)", use_container_width=True)
+
+    st.subheader("Step 1: Auto-Detect & Crop Face")
+
+    with st.spinner("Detecting face..."):
+        cropped = detect_and_crop_face(img)
+
+    if cropped is None:
+        st.error("😕 No face detected. Please upload a clearer photo (front-facing, good lighting).")
+    else:
+        st.success("✅ Face detected and cropped successfully!")
+        cropped = cropped.resize((600, 600), Image.LANCZOS)
+        cropped.info["dpi"] = (300, 300)
+        cropped_buf = compress_image(cropped)
+
+        # --- Create printable 6×4 layout (4 copies) ---
+        layout = Image.new("RGB", (1800, 1200), "white")  # 6×4" @ 300 DPI
+        bordered = ImageOps.expand(cropped, border=10, fill="lightgray")
+        margin_x, margin_y = 150, 100
+        for row in range(2):
+            for col in range(2):
+                x = margin_x + col * (bordered.width + margin_x)
+                y = margin_y + row * (bordered.height + margin_y)
+                layout.paste(bordered, (x, y))
+
+        layout_buf = io.BytesIO()
+        layout.save(layout_buf, format="JPEG", quality=95, dpi=(300, 300))
+        layout_buf.seek(0)
+
+        # --- Display results ---
+        st.subheader("Cropped Passport Photo (600×600)")
+        st.image(cropped, use_container_width=False)
+
+        st.download_button("📥 Download Cropped Photo", cropped_buf, "passport_photo.jpg", "image/jpeg")
+
+        st.subheader("Printable 6×4 Layout (4 Photos)")
+        st.image(layout, use_container_width=False)
+        st.download_button("📥 Download 6×4 Layout", layout_buf, "passport_layout.jpg", "image/jpeg")
+else:
+    st.info("⬆️ Upload a photo above to start.")
