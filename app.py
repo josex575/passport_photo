@@ -1,93 +1,27 @@
-from flask import Flask, render_template_string, request
+import streamlit as st
 from PIL import Image, ImageOps
-import io, os, base64
+import io
 
-app = Flask(__name__)
+st.set_page_config(page_title="Passport Photo Cropper", page_icon="📸", layout="centered")
 
-HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Passport Photo Crop Tool</title>
-    <link  href="https://unpkg.com/cropperjs/dist/cropper.min.css" rel="stylesheet"/>
-    <script src="https://unpkg.com/cropperjs"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding: 20px; }
-        img { max-width: 100%; }
-        .container { display: inline-block; max-width: 500px; margin: 20px auto; }
-        button { margin-top: 10px; padding: 8px 16px; font-size: 16px; }
-    </style>
-</head>
-<body>
-    <h2>Passport Photo Cropper</h2>
-    <p>Upload an image, crop to your face, and generate printable passport photos (4 per 6×4 sheet).</p>
+st.title("📸 Passport Photo Cropper & Layout Generator")
+st.markdown("""
+Upload a photo, crop it to your face, and generate passport photos that meet official standards.
 
-    <input type="file" id="upload" accept="image/*">
-    <div class="container">
-        <img id="image" style="max-width:100%; display:none;">
-    </div>
-    <br>
-    <button id="cropBtn" style="display:none;">Crop & Upload</button>
+**Passport Photo Requirements:**
+- Size: 51 × 51 mm (2 × 2 inches)
+- File size: 20–100 KB
+- Resolution: 350–1000 px (we’ll use 600×600)
+- Bit Depth: 24-bit color
+- DPI: 300
+- Output: single cropped photo + printable 6×4 layout (4 photos)
+""")
 
-    {% if cropped_url %}
-        <h3>Cropped Passport Photo:</h3>
-        <img src="{{ cropped_url }}" style="border:1px solid #ccc; width:200px;"><br>
-        <a href="{{ cropped_url }}" download="passport_photo.jpg">Download Cropped Photo</a>
-        <h3>Printable 6x4 Layout (4 copies):</h3>
-        <img src="{{ layout_url }}" style="border:1px solid #ccc; width:300px;"><br>
-        <a href="{{ layout_url }}" download="passport_layout.jpg">Download 6x4 Layout</a>
-    {% endif %}
-
-    <form id="cropForm" method="POST" enctype="multipart/form-data" style="display:none;">
-        <input type="hidden" name="cropped_data" id="cropped_data">
-    </form>
-
-<script>
-let cropper;
-const upload = document.getElementById('upload');
-const image = document.getElementById('image');
-const cropBtn = document.getElementById('cropBtn');
-const form = document.getElementById('cropForm');
-const croppedInput = document.getElementById('cropped_data');
-
-upload.addEventListener('change', e => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = function(event) {
-        image.src = event.target.result;
-        image.style.display = 'block';
-        if (cropper) cropper.destroy();
-        cropper = new Cropper(image, {
-            aspectRatio: 1,
-            viewMode: 1,
-            dragMode: 'move',
-            autoCropArea: 1.0,
-        });
-        cropBtn.style.display = 'inline-block';
-    };
-    reader.readAsDataURL(file);
-});
-
-cropBtn.addEventListener('click', () => {
-    if (!cropper) return;
-    const canvas = cropper.getCroppedCanvas({ width: 600, height: 600 });
-    canvas.toBlob(blob => {
-        const reader = new FileReader();
-        reader.onloadend = () => {
-            croppedInput.value = reader.result;
-            form.submit();
-        };
-        reader.readAsDataURL(blob);
-    }, 'image/jpeg', 0.9);
-});
-</script>
-</body>
-</html>
-"""
+# Image upload
+uploaded_file = st.file_uploader("Upload a photo", type=["jpg", "jpeg", "png"])
 
 def compress_image(img, min_kb=20, max_kb=100):
-    """Compress image to fit file size limits"""
+    """Compress image to meet KB limits."""
     quality = 95
     buf = io.BytesIO()
     while True:
@@ -105,54 +39,65 @@ def compress_image(img, min_kb=20, max_kb=100):
     buf.seek(0)
     return buf
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    if request.method == "POST":
-        data_url = request.form.get("cropped_data")
-        if not data_url:
-            return render_template_string(HTML)
+if uploaded_file:
+    img = Image.open(uploaded_file).convert("RGB")
 
-        # Decode base64 image from frontend
-        header, encoded = data_url.split(",", 1)
-        img_bytes = base64.b64decode(encoded)
-        img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+    # Let user crop using Streamlit's built-in crop box
+    st.subheader("Step 1: Crop your photo")
+    cropped_img = st.image(img, caption="Uploaded Image", use_container_width=True)
 
-        # Resize & set DPI
-        img = img.resize((600, 600), Image.LANCZOS)
-        img.info["dpi"] = (300, 300)
+    # Ask for manual crop range
+    st.markdown("### Adjust Crop (Optional)")
+    left = st.slider("Left", 0, img.width, 0)
+    top = st.slider("Top", 0, img.height, 0)
+    right = st.slider("Right", 0, img.width, img.width)
+    bottom = st.slider("Bottom", 0, img.height, img.height)
 
-        # Compress cropped image
-        cropped_buf = compress_image(img)
+    if st.button("Crop & Generate"):
+        # Perform crop
+        img_cropped = img.crop((left, top, right, bottom))
+        img_cropped = img_cropped.resize((600, 600), Image.LANCZOS)
+        img_cropped.info["dpi"] = (300, 300)
+
+        # Compress
+        cropped_buf = compress_image(img_cropped)
 
         # --- Create 6x4 layout with 4 copies ---
-        layout = Image.new("RGB", (1800, 1200), "white")  # 6x4" @ 300dpi
-        bordered = ImageOps.expand(img, border=10, fill="lightgray")
+        layout = Image.new("RGB", (1800, 1200), "white")  # 6x4" @ 300 DPI
+        bordered = ImageOps.expand(img_cropped, border=10, fill="lightgray")
 
-        # 2 columns x 2 rows (4 copies total)
-        margin_x, margin_y = 150, 100  # spacing
+        margin_x, margin_y = 150, 100
         for row in range(2):
             for col in range(2):
                 x = margin_x + col * (bordered.width + margin_x)
                 y = margin_y + row * (bordered.height + margin_y)
                 layout.paste(bordered, (x, y))
 
+        # Save images in memory
         layout_buf = io.BytesIO()
         layout.save(layout_buf, format="JPEG", quality=95, dpi=(300, 300))
         layout_buf.seek(0)
 
-        # Save output files
-        os.makedirs("static", exist_ok=True)
-        cropped_path = "static/cropped.jpg"
-        layout_path = "static/layout.jpg"
-        with open(cropped_path, "wb") as f:
-            f.write(cropped_buf.getbuffer())
-        with open(layout_path, "wb") as f:
-            f.write(layout_buf.getbuffer())
+        # Display cropped and layout images
+        st.subheader("Cropped Passport Photo")
+        st.image(img_cropped, caption="600×600 px, ready to upload", use_container_width=False)
 
-        return render_template_string(HTML, cropped_url="/static/cropped.jpg", layout_url="/static/layout.jpg")
+        st.download_button(
+            label="📥 Download Cropped Photo (JPEG)",
+            data=cropped_buf,
+            file_name="passport_photo.jpg",
+            mime="image/jpeg"
+        )
 
-    return render_template_string(HTML)
+        st.subheader("Printable 6×4 Layout (4 Photos)")
+        st.image(layout, caption="Printable 6×4 layout with borders", use_container_width=False)
 
-if __name__ == "__main__":
-    # ✅ Safe for Python 3.13 — no reloader
-    app.run(debug=True, use_reloader=False)
+        st.download_button(
+            label="📥 Download 6×4 Layout (JPEG)",
+            data=layout_buf,
+            file_name="passport_layout.jpg",
+            mime="image/jpeg"
+        )
+
+else:
+    st.info("⬆️ Upload a photo above to start.")
