@@ -29,10 +29,6 @@ if not uploaded_file:
 image = Image.open(uploaded_file).convert("RGB")
 st.image(image, caption="Original Photo", use_column_width=True)
 
-# Option to remove background
-remove_bg = st.checkbox("Replace background with white")
-adjust_tone = st.slider("Adjust Color Tone", 0.5, 2.0, 1.0, 0.1)
-
 # Interactive cropper
 st.markdown("### Drag and resize the rectangle to crop the passport photo")
 cropped_img = st_cropper(
@@ -42,6 +38,12 @@ cropped_img = st_cropper(
     aspect_ratio=(1,1),
     return_type="image"
 )
+
+# Place option near cropped photo
+col1, col2 = st.columns([3,1])
+with col2:
+    remove_bg = st.checkbox("Replace background with white")
+adjust_tone = st.slider("Adjust Color Tone", 0.5, 2.0, 1.0, 0.1)
 
 # Resize to passport size (51 mm x 51 mm)
 dpi = 300
@@ -59,12 +61,12 @@ if remove_bg:
     bg.paste(passport_photo_alpha, mask=passport_photo_alpha.split()[3] if passport_photo_alpha.mode=='RGBA' else None)
     passport_photo = bg
 
+st.image(passport_photo, caption="Processed Passport Photo", width=150)
+
 # Draw narrow border line
 draw = ImageDraw.Draw(passport_photo)
 border_width = 2
 draw.rectangle([0, 0, size_px-1, size_px-1], outline="black", width=border_width)
-
-st.image(passport_photo, caption="Processed Passport Photo", width=150)
 
 # Download individual JPG photos (two copies)
 buf_jpg1 = io.BytesIO()
