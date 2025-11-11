@@ -1,5 +1,5 @@
 import streamlit as st
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageEnhance
 import io
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch, mm
@@ -32,12 +32,21 @@ dpi = 300
 size_px = int(51 / 25.4 * dpi)  # 51mm at 300 DPI
 passport_photo = cropped_img.resize((size_px, size_px), Image.LANCZOS)
 
+# Enhance brightness
+enhancer = ImageEnhance.Brightness(passport_photo)
+passport_photo = enhancer.enhance(1.2)  # increase brightness by 20%
+
+# Replace background with white (simple approach)
+bg = Image.new('RGB', passport_photo.size, (255, 255, 255))
+bg.paste(passport_photo, mask=passport_photo.split()[3] if passport_photo.mode=='RGBA' else None)
+passport_photo = bg
+
 # Draw narrow border line
 draw = ImageDraw.Draw(passport_photo)
 border_width = 2  # 2 px border
 draw.rectangle([0, 0, size_px-1, size_px-1], outline="black", width=border_width)
 
-st.image(passport_photo, caption="Cropped Passport Photo with Border", width=150)
+st.image(passport_photo, caption="Cropped Passport Photo with White Background and Border", width=150)
 
 # Download individual JPG photos (two copies)
 buf_jpg1 = io.BytesIO()
@@ -72,7 +81,7 @@ c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (4x6 paper, 2 photos at left edge with border)",
+    "📥 Download PDF (4x6 paper, 2 photos at left edge with border and white background)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
