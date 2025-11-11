@@ -40,16 +40,16 @@ bordered.save(buf_jpg, format="JPEG", quality=90)
 buf_jpg.seek(0)
 st.download_button("📥 Download JPG", data=buf_jpg, file_name="passport_photo.jpg", mime="image/jpeg")
 
-# Download PDF with 2 photos: one bottom-left, one top-left
+# Download PDF with 2 photos closer together on the left
 pdf_buf = io.BytesIO()
 c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))  # 6x4 inch paper, landscape
 
 # Save temp photo
 bordered.save("temp.jpg")
 
-# Coordinates: bottom-left and top-left
+# Coordinates: bottom-left and top-left, closer together
 x_position = 0.25*inch
-y_positions = [0.25*inch, 2.75*inch]  # bottom and top
+y_positions = [0.5*inch, 2.25*inch]  # bottom and top closer
 
 for y in y_positions:
     c.drawImage("temp.jpg", x_position, y, width=2*inch, height=2*inch)
@@ -59,7 +59,7 @@ c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (4x6 paper, bottom-left and top-left photos)",
+    "📥 Download PDF (4x6 paper, 2 photos closer on left)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
