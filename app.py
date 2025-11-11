@@ -40,12 +40,12 @@ bordered.save(buf_jpg, format="JPEG", quality=90)
 buf_jpg.seek(0)
 st.download_button("📥 Download JPG", data=buf_jpg, file_name="passport_photo.jpg", mime="image/jpeg")
 
-# Download PDF with 2 photos side by side on 4x6 inch paper
+# Download PDF with 2 photos side by side leaving two-thirds of page free
 pdf_buf = io.BytesIO()
 c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))  # 6x4 inch paper, landscape
 
-# Coordinates for two photos side by side
-x_positions = [0.5*inch, 3.0*inch]  # left positions
+# Coordinates for two photos side by side at the left
+x_positions = [0.25*inch, 2.5*inch]  # left margin and space for second photo
 y_position = 1.0*inch  # from bottom
 
 # Save temp photo
@@ -59,7 +59,7 @@ c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (4x6 paper, 2 photos side by side)",
+    "📥 Download PDF (4x6 paper, 2 photos side by side, rest free)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
