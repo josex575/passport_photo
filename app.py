@@ -5,7 +5,6 @@ from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch, mm
 from streamlit_cropper import st_cropper
 
-# Custom CSS for professional app background (light gray)
 st.markdown(
     """
     <style>
@@ -30,7 +29,8 @@ if not uploaded_file:
 image = Image.open(uploaded_file).convert("RGB")
 st.image(image, caption="Original Photo", use_column_width=True)
 
-# Option to adjust color tone
+# Option to remove background
+remove_bg = st.checkbox("Replace background with white")
 adjust_tone = st.slider("Adjust Color Tone", 0.5, 2.0, 1.0, 0.1)
 
 # Interactive cropper
@@ -51,6 +51,13 @@ passport_photo = cropped_img.resize((size_px, size_px), Image.LANCZOS)
 # Adjust color tone
 enhancer = ImageEnhance.Color(passport_photo)
 passport_photo = enhancer.enhance(adjust_tone)
+
+# Replace background with white if selected
+if remove_bg:
+    bg = Image.new('RGB', passport_photo.size, (255, 255, 255))
+    passport_photo_alpha = passport_photo.convert('RGBA')
+    bg.paste(passport_photo_alpha, mask=passport_photo_alpha.split()[3] if passport_photo_alpha.mode=='RGBA' else None)
+    passport_photo = bg
 
 # Draw narrow border line
 draw = ImageDraw.Draw(passport_photo)
