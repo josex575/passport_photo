@@ -56,11 +56,12 @@ passport_photo = enhancer.enhance(adjust_tone)
 
 # Replace background with white if selected
 if remove_bg:
-    # Create white background
+    # Create a plain white background
     bg = Image.new('RGB', passport_photo.size, (255, 255, 255))
-    if passport_photo.mode != 'RGBA':
-        passport_photo = passport_photo.convert('RGBA')
-    bg.paste(passport_photo, mask=passport_photo.split()[3])  # use alpha channel as mask
+    if passport_photo.mode != 'RGB':
+        passport_photo = passport_photo.convert('RGB')
+    # Paste the photo directly on white background
+    bg.paste(passport_photo)
     passport_photo = bg
 
 # Draw narrow border line
