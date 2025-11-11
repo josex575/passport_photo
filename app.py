@@ -4,6 +4,21 @@ import io
 from reportlab.pdfgen import canvas
 from reportlab.lib.units import inch, mm
 from streamlit_cropper import st_cropper
+from rembg import remove  # For background removal
+
+# Custom CSS for background similar to Alankit logo (example gradient)
+st.markdown(
+    """
+    <style>
+    .stApp {
+        background: linear-gradient(135deg, #0A74DA, #00A86B);
+        background-attachment: fixed;
+        color: white;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True
+)
 
 st.set_page_config(page_title="Passport Studio", page_icon="📸", layout="wide")
 st.title("📸 Passport Studio (Interactive Crop, Print Ready)")
@@ -17,36 +32,39 @@ if not uploaded_file:
 image = Image.open(uploaded_file).convert("RGB")
 st.image(image, caption="Original Photo", use_column_width=True)
 
+# Options
+remove_bg = st.checkbox("Remove Background")
+adjust_tone = st.slider("Adjust Color Tone", 0.5, 2.0, 1.0, 0.1)
+
+# Remove background if selected
+if remove_bg:
+    image = remove(image)
+
 # Interactive cropper
 st.markdown("### Drag and resize the rectangle to crop the passport photo")
 cropped_img = st_cropper(
     image,
     realtime_update=True,
     box_color="#FF0000",
-    aspect_ratio=(1,1),  # square aspect ratio
-    return_type="image"  # PIL.Image
+    aspect_ratio=(1,1),
+    return_type="image"
 )
 
 # Resize to passport size (51 mm x 51 mm)
 dpi = 300
-size_px = int(51 / 25.4 * dpi)  # 51mm at 300 DPI
+size_px = int(51 / 25.4 * dpi)
 passport_photo = cropped_img.resize((size_px, size_px), Image.LANCZOS)
 
-# Enhance brightness
-enhancer = ImageEnhance.Brightness(passport_photo)
-passport_photo = enhancer.enhance(1.2)  # increase brightness by 20%
-
-# Replace background with white (simple approach)
-bg = Image.new('RGB', passport_photo.size, (255, 255, 255))
-bg.paste(passport_photo, mask=passport_photo.split()[3] if passport_photo.mode=='RGBA' else None)
-passport_photo = bg
+# Adjust color tone
+enhancer = ImageEnhance.Color(passport_photo)
+passport_photo = enhancer.enhance(adjust_tone)
 
 # Draw narrow border line
 draw = ImageDraw.Draw(passport_photo)
-border_width = 2  # 2 px border
+border_width = 2
 draw.rectangle([0, 0, size_px-1, size_px-1], outline="black", width=border_width)
 
-st.image(passport_photo, caption="Cropped Passport Photo with White Background and Border", width=150)
+st.image(passport_photo, caption="Processed Passport Photo", width=150)
 
 # Download individual JPG photos (two copies)
 buf_jpg1 = io.BytesIO()
@@ -61,27 +79,19 @@ st.download_button("📥 Download Photo 2 (JPG)", data=buf_jpg2, file_name="pass
 
 # Download PDF with 2 photos side by side at left edge
 pdf_buf = io.BytesIO()
-c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))  # 6x4 inch paper, landscape
-
-# Convert mm to points for PDF (1 mm = 2.83465 pt)
+c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))
 photo_size_pt = 51 * 2.83465
-
-# Coordinates: bottom-left and top-left
-x_position = 0  # left edge
-y_positions = [0, 4*inch - photo_size_pt]  # bottom and top
-
-# Save temp photo with border
+x_position = 0
+y_positions = [0, 4*inch - photo_size_pt]
 passport_photo.save("temp.jpg")
-
 for y in y_positions:
     c.drawImage("temp.jpg", x_position, y, width=photo_size_pt, height=photo_size_pt)
-
 c.showPage()
 c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (4x6 paper, 2 photos at left edge with border and white background)",
+    "📥 Download PDF (4x6 paper, 2 photos at left edge with border)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
