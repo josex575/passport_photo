@@ -40,12 +40,12 @@ bordered.save(buf_jpg, format="JPEG", quality=90)
 buf_jpg.seek(0)
 st.download_button("📥 Download JPG", data=buf_jpg, file_name="passport_photo.jpg", mime="image/jpeg")
 
-# Download PDF with two photos on top of 6x4 paper
+# Download PDF with multiple copies on top of 6x4 paper for reuse after cutting
 pdf_buf = io.BytesIO()
 c = canvas.Canvas(pdf_buf, pagesize=(6*inch, 4*inch))  # 6x4 inch paper
 
-# Coordinates for two photos
-x_positions = [0.5*inch, 2.5*inch]  # left positions
+# Coordinates for three photos on top (can reuse paper)
+x_positions = [0.25*inch, 2.25*inch, 4.25*inch]  # left positions with margin
 # Top margin: 0.5 inch, each photo height 2 inch
 y_position = 4*inch - 2.5*inch
 
@@ -60,7 +60,7 @@ c.save()
 pdf_buf.seek(0)
 
 st.download_button(
-    "📥 Download PDF (6x4 paper, 2 photos)",
+    "📥 Download PDF (6x4 paper, multiple photos for reuse)",
     data=pdf_buf,
     file_name="passport_layout.pdf",
     mime="application/pdf"
