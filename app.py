@@ -26,8 +26,8 @@ cropped_img = st_cropper(
     image,
     realtime_update=True,
     box_color="#FF0000",
-    aspect_ratio=1,  # passport photos are square
-    return_type="pil"
+    aspect_ratio=1,
+    return_type="image"  # use "image" for PIL.Image
 )
 
 # Resize to passport size (51x51 mm ~ 600x600 px)
