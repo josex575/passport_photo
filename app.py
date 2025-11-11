@@ -10,12 +10,9 @@ from reportlab.lib.pagesizes import landscape, A4
 from functools import lru_cache
 
 st.set_page_config(page_title="Passport Studio", page_icon="📸", layout="wide")
-st.title("📸 Passport Studio — Auto Face Crop, Background Whitening, Print PDF")
+st.title("📸 Passport Studio — Auto Face Crop & Print PDF")
 st.markdown("Upload a photo, auto-detect face, crop, whiten background, and generate passport-ready JPG/PDF.")
 
-# -------------------------
-# Passport presets
-# -------------------------
 PASSPORT_PRESETS = {
     "India (51×51 mm)": {"mm_w": 51, "mm_h": 51},
     "USA (2×2 inches = 51×51 mm)": {"mm_w": 51, "mm_h": 51},
@@ -24,11 +21,8 @@ PASSPORT_PRESETS = {
     "Custom (px)": {"mm_w": None, "mm_h": None},
 }
 
-PRINT_DPI = 300  # For print
+PRINT_DPI = 300
 
-# -------------------------
-# Caching
-# -------------------------
 @st.cache_data
 def load_image_bytes(uploaded_file):
     return uploaded_file.read()
@@ -39,8 +33,7 @@ def load_image_pil(image_bytes):
     max_dim = 2500
     if max(img.size) > max_dim:
         ratio = max_dim / max(img.size)
-        new_size = (int(img.width * ratio), int(img.height * ratio))
-        img = img.resize(new_size, Image.LANCZOS)
+        img = img.resize((int(img.width*ratio), int(img.height*ratio)), Image.LANCZOS)
     return img
 
 @lru_cache(maxsize=1)
@@ -49,14 +42,8 @@ def get_mediapipe_models():
     mp_selfie = mp.solutions.selfie_segmentation.SelfieSegmentation(model_selection=1)
     return mp_face, mp_selfie
 
-# -------------------------
-# Helpers
-# -------------------------
 def pil_to_cv2(img_pil):
     return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
-
-def cv2_to_pil(img_cv):
-    return Image.fromarray(cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB))
 
 def detect_face_bbox(pil_img):
     mp_face, _ = get_mediapipe_models()
@@ -118,41 +105,18 @@ def crop_to_box(pil_img, box):
 def resize_for_passport(pil_img, target_px):
     return pil_img.resize((target_px, target_px), Image.LANCZOS)
 
-def compress_image_bytes(pil_img, min_kb=20, max_kb=100):
-    buf = io.BytesIO()
-    quality = 90
-    for _ in range(12):
-        buf.seek(0)
-        pil_img.save(buf, format="JPEG", quality=quality, dpi=(PRINT_DPI, PRINT_DPI))
-        size_kb = buf.tell() / 1024
-        if min_kb <= size_kb <= max_kb:
-            break
-        quality = max(10, min(95, quality - 7 if size_kb>max_kb else quality+5))
-    buf.seek(0)
-    return buf
-
-# -------------------------
-# UI
-# -------------------------
-col1, col2 = st.columns([1,1])
-with col1:
-    uploaded_file = st.file_uploader("Upload photo (front-facing)", type=["jpg","jpeg","png"])
-with col2:
-    st.markdown("### Steps:\n1. Upload photo\n2. Auto face crop\n3. Fine-tune if needed\n4. Download JPG/PDF")
+uploaded_file = st.file_uploader("Upload front-facing photo", type=["jpg","jpeg","png"])
 if not uploaded_file:
     st.info("Upload a photo to start.")
     st.stop()
 
 image_bytes = load_image_bytes(uploaded_file)
 orig_pil = load_image_pil(image_bytes)
-st.markdown("### Original Image")
-st.image(orig_pil, use_column_width=True)
+st.image(orig_pil, caption="Original", use_column_width=True)
 
-# Auto face detection
-with st.spinner("Detecting face..."):
-    face_box = detect_face_bbox(orig_pil)
+face_box = detect_face_bbox(orig_pil)
 if face_box is None:
-    st.warning("No face detected. Use manual crop or retry with clearer photo.")
+    st.warning("No face detected. Please try another photo.")
     st.stop()
 
 x, y, w, h = face_box
@@ -162,10 +126,11 @@ auto_box = add_margin_square((x,y,w,h), img_w, img_h)
 cropped = crop_to_box(orig_pil, auto_box)
 mask = segment_background_mask(cropped)
 cropped = apply_background_whitening(cropped, mask)
-target_px = max(350, min(1000, 600))
-cropped = resize_for_passport(cropped, target_px)
-compressed_buf = compress_image_bytes(cropped, 20,100)
+cropped = resize_for_passport(cropped, 600)
 
-st.markdown("### Final Cropped Passport Photo")
-st.image(cropped, width=300)
-st.download_button("📥 Download Cropped JPG", data=compressed_buf, file_name="passport_photo.jpg", mime="image/jpeg")
+buf = io.BytesIO()
+cropped.save(buf, format="JPEG", quality=90, dpi=(PRINT_DPI, PRINT_DPI))
+buf.seek(0)
+
+st.image(cropped, caption="Cropped Passport Photo", width=300)
+st.download_button("📥 Download JPG", data=buf, file_name="passport_photo.jpg", mime="image/jpeg")
